@@ -1,0 +1,293 @@
+---
+title: "Sentiment Analysis -  Airbnb Reviews"
+author: "Suyash Tiwari"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+Date: 12/30/2017
+---
+```{r}
+install.packages("qdap")
+library("qdap")
+install.packages("ggplot2")
+library("ggplot2")
+install.packages("ggthemes")
+library("ggthemes")
+install.packages("tidytext")
+library(tidytext)
+install.packages("tidyr")
+library("tidyr")
+install.packages("dplyr")
+library(dplyr)
+install.packages("tm")
+library("tm")
+install.packages("wordcloud")
+library("wordcloud")
+```
+
+```{r}
+bos_reviews<-readRDS("C:/Users/suyas/Downloads/TwitteR/Datacamp/Sentiment Analysis/bos_reviews.rds")
+head(bos_reviews)
+str(bos_reviews)
+dim(bos_reviews)
+```
+
+```{r}
+# Practice apply polarity to first 6 reviews
+practice_pol <- polarity(bos_reviews$comments[1:6])
+
+# Review the object
+practice_pol
+# Check out the practice polarity
+summary(practice_pol$all$polarity)
+
+```
+```{r}
+# polarity for all reviews 1000
+bos_pol <- polarity(bos_reviews$comments)
+bos_pol
+# Summary for all reviews
+summary(bos_pol$all$polarity)
+
+```
+```{r}
+# Plot it
+ggplot(bos_pol$all, aes(x = polarity, y = ..density..)) +
+  theme_gdocs() + 
+  geom_histogram(binwidth = 0.25, fill = "#bada55", colour = "grey60") +
+  geom_density(size = 0.75)
+```
+
+```{r}
+# Review
+bos_pol$group
+
+# Add polarity column
+bos_reviews_with_pol <- bos_reviews %>% 
+  mutate(polarity = bos_pol$all$polarity)
+
+# Subset positive comments 
+pos_comments <- bos_reviews_with_pol %>% 
+  filter(polarity > 0) %>% 
+  pull(comments)
+
+# Subset negative comments
+neg_comments <- bos_reviews_with_pol %>% 
+  filter(polarity<0) %>% 
+  pull(comments)
+
+# Paste and collapse the positive comments
+pos_terms <- paste(pos_comments, collapse = " ")
+
+# Paste and collapse the negative comments
+neg_terms <- paste(neg_comments,collapse = " ")
+
+# Concatenate the terms
+all_terms <- c(pos_terms, neg_terms)
+
+# Pipe a VectorSource Corpus
+all_corpus <- all_terms %>% 
+  VectorSource() %>% 
+  VCorpus()
+
+# Simple TFIDF TDM
+all_tdm <- TermDocumentMatrix(
+  all_corpus, 
+  control = list(
+    weighting = weightTfIdf, 
+    removePunctuation = TRUE, 
+    stopwords = stopwords(kind = "en")
+  )
+)
+
+# Examine the TDM
+all_tdm
+```
+
+```{r}
+# Vector to tibble
+tidy_reviews <- bos_reviews %>% 
+  unnest_tokens(word, comments)
+
+# Group by and mutate
+tidy_reviews <- tidy_reviews %>% 
+  group_by(id) %>% 
+  mutate(original_word_order = seq_along(word))
+
+# Quick review
+tidy_reviews
+
+# Load stopwords
+data("stop_words")
+
+# Perform anti-join
+tidy_reviews_without_stopwords <- tidy_reviews %>% 
+  anti_join(stop_words)
+```
+
+
+```{r}
+# Get the correct lexicon
+bing<-get_sentiments("bing")
+
+# Calculate polarity for each review
+pos_neg <- tidy_reviews %>% 
+  inner_join(bing) %>%
+  count(sentiment) %>%
+  spread(sentiment, n, fill = 0) %>% 
+  mutate(polarity = positive - negative)
+
+# Check outcome
+summary(pos_neg)
+```
+
+```{r}
+# Review tidy_reviews
+tidy_reviews
+
+# Review pos_neg
+pos_neg
+
+# Create effort
+effort<- tidy_reviews %>%
+count(id)
+
+# Inner join
+pos_neg_with_effort <- pos_neg %>%
+inner_join(effort)
+
+# Review 
+pos_neg_with_effort
+
+# Add pol
+pos_neg_pol <- pos_neg_with_effort %>%
+  mutate(
+    pol = ifelse(
+      polarity >= 0, 
+      "Positive", 
+      "Negative"
+    )
+  )
+
+# Plot
+ggplot(
+  pos_neg_pol, 
+  aes(polarity, n, color = pol)
+) + 
+  geom_point(alpha = 0.25) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_gdocs() +
+  ggtitle("Relationship between word effort & polarity")
+```
+
+```{r}
+# Matrix
+all_tdm_m <- as.matrix(all_tdm)
+
+# Column names
+colnames(all_tdm_m) <- c("positive","negative")
+
+# Top pos words
+order_by_pos <- order(all_tdm_m[, 1], decreasing = TRUE)
+
+# Review top 10 pos words
+all_tdm_m[order_by_pos, ] %>% head(n=10)
+
+# Top neg words
+order_by_neg <- order(all_tdm_m[,2], decreasing = TRUE)
+
+# Review top 10 neg words
+all_tdm_m[order_by_neg, ] %>% head(n=10)
+
+
+# Comparison cloud
+comparison.cloud(
+  all_tdm_m, 
+  max.words = 20,
+  colors = c("darkgreen","darkred")
+)
+```
+
+```{r}
+# Review
+bos_pol$all[1:6,1:3]
+
+# Scale/center & append
+bos_reviews$scaled_polarity <- scale(bos_pol$all$polarity)
+
+# Subset positive comments
+pos_comments <- subset(bos_reviews$comments, bos_reviews$scaled_polarity>0)
+
+# Subset negative comments
+neg_comments <- subset(bos_reviews$comments, bos_reviews$scaled_polarity<0)
+
+# Paste and collapse the positive comments
+pos_terms <- paste(pos_comments, collapse = " ")
+
+# Paste and collapse the negative comments
+neg_terms <- paste(neg_comments, collapse = " ")
+
+# Organize
+all_terms<- c(pos_terms, neg_terms)
+
+# VCorpus
+all_corpus <- VCorpus(VectorSource(all_terms))
+
+# TDM
+all_tdm <- TermDocumentMatrix(
+  all_corpus, 
+  control = list(
+    weighting = weightTfIdf, 
+    removePunctuation = TRUE, 
+    stopwords = stopwords(kind = "en")
+  )
+)
+
+# Column names
+all_tdm_m <- as.matrix(all_tdm)
+colnames(all_tdm_m) <- c("positive", "negative")
+
+# Comparison cloud
+comparison.cloud(
+  all_tdm_m, 
+  max.words = 100,
+  colors = c("darkgreen", "darkred")
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
