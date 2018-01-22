@@ -2,33 +2,34 @@
 title: "Sentiment Analysis -  Airbnb Reviews"
 author: "Suyash Tiwari"
 output:
-  html_document:
-    toc: yes
   pdf_document:
+    toc: yes
+  html_document:
     toc: yes
 Date: 12/30/2017
 ---
+
 ```{r}
-install.packages("qdap")
+#install.packages("qdap")
 library("qdap")
-install.packages("ggplot2")
+#install.packages("ggplot2")
 library("ggplot2")
-install.packages("ggthemes")
+#install.packages("ggthemes")
 library("ggthemes")
-install.packages("tidytext")
+#install.packages("tidytext")
 library(tidytext)
-install.packages("tidyr")
+#install.packages("tidyr")
 library("tidyr")
-install.packages("dplyr")
+#install.packages("dplyr")
 library(dplyr)
-install.packages("tm")
+#install.packages("tm")
 library("tm")
-install.packages("wordcloud")
+#install.packages("wordcloud")
 library("wordcloud")
 ```
 
 ```{r}
-bos_reviews<-readRDS("C:/Users/suyas/Downloads/TwitteR/Datacamp/Sentiment Analysis/bos_reviews.rds")
+bos_reviews<-readRDS("C:/Users/suyas/Downloads/TwitteR/Datacamp/Sentiment Analysis/Sentiment Analysis - Airbnb Reviews/Sentiment-Analysis---Airbnb-Reviews/bos_reviews.rds")
 head(bos_reviews)
 str(bos_reviews)
 dim(bos_reviews)
